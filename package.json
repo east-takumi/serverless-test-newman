@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "build": "sam build",
-    "start-local": "sam local start-lambda & sam local start-api & node tests/mock-api.js",
+    "start-local": "sam local start-lambda & node tests/setup-local-stepfunctions.js",
     "test": "npm run build && npm run start-local && newman run tests/postman/serverless-test-collection.json -e tests/postman/environment.json --reporters cli,junit --reporter-junit-export results/junit-report.xml",
     "test:ci": "newman run tests/postman/serverless-test-collection.json -e tests/postman/environment.json --reporters cli,junit --reporter-junit-export results/junit-report.xml",
     "postman:upload": "echo \"Postman同期機能は現在無効です。README.mdを参照して有効化してください。\"",

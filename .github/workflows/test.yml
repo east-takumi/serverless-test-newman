@@ -41,10 +41,10 @@ jobs:
     
     - name: Set up Step Functions Local
       run: |
-        node tests/setup-local-stepfunctions.js &
-        node tests/mock-api.js &
-        echo "Waiting for mock services to start..."
+        docker run -d -p 8083:8083 --name stepfunctions-local amazon/aws-stepfunctions-local
+        echo "Waiting for Step Functions to start..."
         sleep 10
+        node tests/setup-local-stepfunctions.js
     
     - name: Run Newman tests
       run: |
