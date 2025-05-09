@@ -1,5 +1,10 @@
 #!/bin/bash
 
+# 既存のStep Functions Localコンテナを停止・削除
+echo "既存のStep Functions Localコンテナをクリーンアップしています..."
+docker stop stepfunctions-local 2>/dev/null || true
+docker rm stepfunctions-local 2>/dev/null || true
+
 # Step Functions Localを起動
 echo "Step Functions Localを起動しています..."
 docker run -d -p 8083:8083 --name stepfunctions-local \

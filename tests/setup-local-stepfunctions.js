@@ -52,11 +52,11 @@ async function createStateMachine() {
       console.log('ステートマシンのリスト取得中にエラーが発生しました（新規作成を続行します）:', listError.message);
     }
 
-    // 新しいステートマシンを作成（roleArnを省略）
+    // 新しいステートマシンを作成（roleArnを指定）
     const params = {
       name: 'DataProcessingStateMachine',
-      definition: localDefinition
-      // roleArnを省略
+      definition: localDefinition,
+      roleArn: 'arn:aws:states:::role/stateMachine' // Step Functions Localで有効なロールARN
     };
 
     const result = await stepfunctions.createStateMachine(params).promise();
