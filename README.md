@@ -17,7 +17,10 @@
 ## セットアップ
 
 ```bash
-# SAMプロジェクトの初期化
+# 依存関係のインストール
+npm install --legacy-peer-deps
+
+# SAMプロジェクトのビルド
 sam build
 
 # ローカルでのテスト実行
@@ -29,3 +32,16 @@ npm run test
 1. AWS SAMでローカルLambda実行環境を構築
 2. Step Functionsのモック実行
 3. Newmanを使って各ステートの入出力を検証
+
+## プロジェクト構成
+
+```
+serverless-test-newman/
+├── .github/workflows/    # GitHub Actions設定
+├── src/                  # Lambda関数のソースコード
+├── statemachine/         # Step Functions定義
+├── tests/                # テストコードとPostmanコレクション
+├── results/              # テスト結果出力ディレクトリ
+├── template.yaml         # AWS SAMテンプレート
+└── package.json          # プロジェクト設定
+```

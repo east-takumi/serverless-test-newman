@@ -22,7 +22,19 @@
     "aws-sdk": "^2.1135.0"
   },
   "devDependencies": {
-    "newman": "^5.3.2",
+    "newman": "^6.0.0",
     "newman-reporter-htmlextra": "^1.22.11"
-  }
+  },
+  "directories": {
+    "test": "tests"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/east-takumi/serverless-test-newman.git"
+  },
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/east-takumi/serverless-test-newman/issues"
+  },
+  "homepage": "https://github.com/east-takumi/serverless-test-newman#readme"
 }
