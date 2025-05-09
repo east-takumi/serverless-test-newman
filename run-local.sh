@@ -8,9 +8,12 @@ docker rm stepfunctions-local 2>/dev/null || true
 # Step Functions Localを起動
 echo "Step Functions Localを起動しています..."
 docker run -d -p 8083:8083 --name stepfunctions-local \
+  -e AWS_ACCESS_KEY_ID=dummy \
+  -e AWS_SECRET_ACCESS_KEY=dummy \
   -e LAMBDA_ENDPOINT=http://host.docker.internal:3001 \
   -e LAMBDA_FORWARD_REQUEST=1 \
   -e STEP_FUNCTIONS_ENDPOINT=http://localhost:8083 \
+  -e SFN_IAM_ROLE_ARN_PATTERN='arn:aws:iam::123456789012:role/.*' \
   --add-host=host.docker.internal:host-gateway \
   amazon/aws-stepfunctions-local
 
