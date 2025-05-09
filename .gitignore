@@ -1,0 +1,35 @@
+# 依存関係
+node_modules/
+package-lock.json
+
+# AWS SAM ビルド関連
+.aws-sam/
+samconfig.toml
+
+# テスト結果
+results/
+*.xml
+*.html
+
+# エディタ設定
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS関連
+.DS_Store
+Thumbs.db
+
+# 環境変数
+.env
+.env.*
+
+# ログファイル
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# カバレッジレポート
+coverage/

@@ -60,3 +60,4 @@ Outputs:
     Description: "Data Processing State Machine ARN"
     Value: 
       Ref: DataProcessingStateMachine
+

@@ -72,7 +72,7 @@ serverless-test-newman/
 
 ```bash
 # 依存関係のインストール
-npm install
+npm install --legacy-peer-deps
 
 # SAMプロジェクトのビルド
 npm run build

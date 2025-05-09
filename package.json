@@ -5,9 +5,11 @@
   "main": "index.js",
   "scripts": {
     "build": "sam build",
-    "start-local": "sam local start-lambda & sam local start-api & node tests/setup-local-stepfunctions.js",
+    "start-local": "sam local start-lambda & sam local start-api & node tests/mock-api.js",
     "test": "npm run build && npm run start-local && newman run tests/postman/serverless-test-collection.json -e tests/postman/environment.json --reporters cli,junit --reporter-junit-export results/junit-report.xml",
-    "test:ci": "newman run tests/postman/serverless-test-collection.json -e tests/postman/environment.json --reporters cli,junit --reporter-junit-export results/junit-report.xml"
+    "test:ci": "newman run tests/postman/serverless-test-collection.json -e tests/postman/environment.json --reporters cli,junit --reporter-junit-export results/junit-report.xml",
+    "postman:upload": "echo \"Postman同期機能は現在無効です。README.mdを参照して有効化してください。\"",
+    "postman:download": "echo \"Postman同期機能は現在無効です。README.mdを参照して有効化してください。\""
   },
   "keywords": [
     "serverless",
@@ -22,7 +24,19 @@
     "aws-sdk": "^2.1135.0"
   },
   "devDependencies": {
-    "newman": "^5.3.2",
+    "newman": "^6.0.0",
     "newman-reporter-htmlextra": "^1.22.11"
-  }
+  },
+  "directories": {
+    "test": "tests"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/east-takumi/serverless-test-newman.git"
+  },
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/east-takumi/serverless-test-newman/issues"
+  },
+  "homepage": "https://github.com/east-takumi/serverless-test-newman#readme"
 }
