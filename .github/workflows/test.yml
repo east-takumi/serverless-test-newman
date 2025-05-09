@@ -61,6 +61,15 @@ jobs:
         name: test-results
         path: results/
         
+    # Postman同期機能（現在コメントアウト）
+    # - name: Sync with Postman
+    #   if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    #   run: npm run postman:upload
+    #   env:
+    #     POSTMAN_API_KEY: ${{ secrets.POSTMAN_API_KEY }}
+    #     POSTMAN_COLLECTION_ID: ${{ secrets.POSTMAN_COLLECTION_ID }}
+    #     POSTMAN_ENVIRONMENT_ID: ${{ secrets.POSTMAN_ENVIRONMENT_ID }}
+        
     - name: Check test results
       run: |
         if [ -f results/junit-report.xml ]; then
