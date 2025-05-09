@@ -10,73 +10,110 @@
 
 ## ローカル環境でのセットアップ
 
-### 1. Step Functions Localコンテナの起動
+### 簡易実行スクリプトを使用する方法
+
+プロジェクトルートにある `run-local.sh` スクリプトを使用すると、すべての環境を一度に起動してテストを実行できます：
 
 ```bash
-docker run -d -p 8083:8083 --name stepfunctions-local amazon/aws-stepfunctions-local
+# スクリプトに実行権限を付与（初回のみ）
+chmod +x run-local.sh
+
+# スクリプトを実行
+./run-local.sh
 ```
 
-### 2. テスト環境の起動
+このスクリプトは以下の処理を自動的に行います：
+1. Step Functions Localコンテナの起動
+2. SAMプロジェクトのビルド
+3. Lambda関数のローカル実行環境の起動
+4. Step Functions環境のセットアップ
+5. Newmanテストの実行
+6. 使用したリソースのクリーンアップ
+
+### 手動でセットアップする方法
+
+#### 1. Step Functions Localコンテナの起動
+
+```bash
+docker run -d -p 8083:8083 --name stepfunctions-local \
+  -e LAMBDA_ENDPOINT=http://host.docker.internal:3001 \
+  -e LAMBDA_FORWARD_REQUEST=1 \
+  -e STEP_FUNCTIONS_ENDPOINT=http://localhost:8083 \
+  --add-host=host.docker.internal:host-gateway \
+  amazon/aws-stepfunctions-local
+```
+
+#### 2. SAMプロジェクトのビルドとLambda関数の起動
 
 ```bash
 # SAMプロジェクトのビルド
-npm run build
+sam build
 
-# ローカルLambdaとStep Functions環境の起動
-npm run start-local
+# Lambda関数のローカル実行環境を起動
+sam local start-lambda
+```
 
-# テストの実行
+#### 3. Step Functions環境のセットアップ
+
+```bash
+# 別のターミナルで実行
+DOCKER_HOST_IP=host.docker.internal node tests/setup-local-stepfunctions.js
+```
+
+#### 4. テストの実行
+
+```bash
+# 別のターミナルで実行
 newman run tests/postman/serverless-test-collection.json -e tests/postman/environment.json
 ```
 
 ## 仕組みの解説
 
-1. **Step Functions Localコンテナ**:
-   - ポート8083でStep Functions APIをエミュレート
-   - ステートマシンの作成と実行をローカルで処理
+### Step Functions LocalとLambda関数の連携
 
-2. **setup-local-stepfunctions.js**:
-   - ステートマシンの定義をローカル環境用に調整
-   - Step Functions LocalにステートマシンをデプロイするためのAPIクライアント
-   - テストAPIサーバーを提供して、Step Functions実行をハンドリング
+Step Functions Localコンテナは、環境変数を通じてLambda関数のエンドポイントを認識します：
 
-3. **Lambda関数とStep Functionsの連携**:
-   - SAM Localが提供するLambda関数のエンドポイントをStep Functions Localから呼び出し
-   - 実際のAWS環境と同様のワークフローを実現
+- `LAMBDA_ENDPOINT`: Lambda関数のエンドポイントURL
+- `LAMBDA_FORWARD_REQUEST=1`: Lambda関数へのリクエスト転送を有効化
+- `--add-host=host.docker.internal:host-gateway`: Dockerコンテナからホストマシンへのアクセスを可能にする
+
+### ステートマシンの定義
+
+`setup-local-stepfunctions.js` スクリプトは、ステートマシンの定義を読み込み、Lambda関数のARNをローカル環境用に置き換えます：
+
+```javascript
+const localDefinition = stateMachineDefinition
+  .replace('${ProcessDataFunctionArn}', 'arn:aws:lambda:us-east-1:123456789012:function:ProcessDataFunction')
+  .replace('${ValidateDataFunctionArn}', 'arn:aws:lambda:us-east-1:123456789012:function:ValidateDataFunction')
+  .replace('${StoreResultFunctionArn}', 'arn:aws:lambda:us-east-1:123456789012:function:StoreResultFunction');
+```
+
+### テストAPIサーバー
+
+`setup-local-stepfunctions.js` スクリプトは、Postmanテストからのリクエストを処理するためのAPIサーバーも起動します。このサーバーは、Step Functions Localへのリクエストを仲介し、実行結果を返します。
 
 ## トラブルシューティング
 
-### 認証エラー
+### ポートの競合
 
-Step Functions LocalへのAPIリクエストで認証エラーが発生する場合は、AWS SDKの設定でダミーの認証情報を使用していることを確認してください：
+Step Functions LocalとテストAPIサーバーは同じポート（8083）を使用します。テストAPIサーバーは、ポートが既に使用されている場合、プロキシモードで動作します。
 
-```javascript
-const stepfunctions = new AWS.StepFunctions({
-  endpoint: 'http://localhost:8083',
-  region: 'local',
-  accessKeyId: 'dummy',
-  secretAccessKey: 'dummy'
-});
-```
+### Lambda関数へのアクセス
 
-### ネットワーク接続の問題
+Step Functions LocalからLambda関数にアクセスできない場合は、以下を確認してください：
 
-Dockerコンテナ内のStep Functions LocalからSAM LocalのLambda関数にアクセスできない場合：
-
-1. Dockerネットワークの設定を確認
-2. ホストマシンのIPアドレスを使用してLambda関数にアクセス
-3. Docker内のネットワーク設定を調整
+1. `DOCKER_HOST_IP` 環境変数が正しく設定されているか
+2. Docker実行時に `--add-host=host.docker.internal:host-gateway` オプションが指定されているか
+3. Lambda関数が正しいポート（3001）で実行されているか
 
 ### 実行タイムアウト
 
-Step Functionsの実行が完了するまでに時間がかかる場合は、`setup-local-stepfunctions.js`のポーリング間隔とタイムアウト設定を調整してください。
+Step Functionsの実行が完了するまでに時間がかかる場合は、`setup-local-stepfunctions.js` のポーリング間隔とタイムアウト設定を調整してください：
+
+```javascript
+const maxRetries = 30; // 最大30秒待機に延長
+```
 
 ## GitHub Actionsでの使用
 
-GitHub Actionsでは、ワークフロー内でStep Functions Localコンテナを起動し、テストを実行します。`.github/workflows/test.yml`ファイルで設定されています。
-
-## 注意事項
-
-- Step Functions Localは実際のAWS Step Functionsと完全に同じ動作を保証するものではありません
-- 複雑なステートマシンや特定のサービス統合では、動作が異なる場合があります
-- 本番環境へのデプロイ前に、実際のAWS環境でもテストすることをお勧めします
+GitHub Actionsでは、ワークフロー内でStep Functions Localコンテナを起動し、テストを実行します。`.github/workflows/test.yml` ファイルで設定されています。

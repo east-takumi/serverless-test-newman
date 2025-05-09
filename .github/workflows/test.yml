@@ -41,10 +41,17 @@ jobs:
     
     - name: Set up Step Functions Local
       run: |
-        docker run -d -p 8083:8083 --name stepfunctions-local amazon/aws-stepfunctions-local
+        docker run -d -p 8083:8083 --name stepfunctions-local \
+          -e LAMBDA_ENDPOINT=http://host.docker.internal:3001 \
+          -e LAMBDA_FORWARD_REQUEST=1 \
+          -e STEP_FUNCTIONS_ENDPOINT=http://localhost:8083 \
+          --add-host=host.docker.internal:host-gateway \
+          amazon/aws-stepfunctions-local
         echo "Waiting for Step Functions to start..."
         sleep 10
-        node tests/setup-local-stepfunctions.js
+        DOCKER_HOST_IP=host.docker.internal node tests/setup-local-stepfunctions.js &
+        echo "Waiting for test API server to start..."
+        sleep 5
     
     - name: Run Newman tests
       run: |

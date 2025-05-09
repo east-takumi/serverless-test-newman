@@ -8,21 +8,18 @@
 const AWS = require('aws-sdk');
 const fs = require('fs');
 const path = require('path');
+const http = require('http');
+const url = require('url');
+
+// ホストマシンのIPアドレス（Docker環境用）
+const DOCKER_HOST_IP = process.env.DOCKER_HOST_IP || 'host.docker.internal';
 
 // ローカルStep Functions設定
 const stepfunctions = new AWS.StepFunctions({
   endpoint: 'http://localhost:8083',
-  region: 'local',
-  accessKeyId: 'dummy',     // ダミーの認証情報
-  secretAccessKey: 'dummy'  // ダミーの認証情報
-});
-
-// ローカルLambda設定
-const lambda = new AWS.Lambda({
-  endpoint: 'http://localhost:3001',
-  region: 'local',
-  accessKeyId: 'dummy',     // ダミーの認証情報
-  secretAccessKey: 'dummy'  // ダミーの認証情報
+  region: 'us-east-1',
+  accessKeyId: 'dummy',
+  secretAccessKey: 'dummy'
 });
 
 // ステートマシン定義の読み込み
@@ -33,9 +30,9 @@ const stateMachineDefinition = fs.readFileSync(
 
 // Lambda ARNをローカル環境用に置換
 const localDefinition = stateMachineDefinition
-  .replace('${ProcessDataFunctionArn}', 'arn:aws:lambda:local:0123456789:function:ProcessDataFunction')
-  .replace('${ValidateDataFunctionArn}', 'arn:aws:lambda:local:0123456789:function:ValidateDataFunction')
-  .replace('${StoreResultFunctionArn}', 'arn:aws:lambda:local:0123456789:function:StoreResultFunction');
+  .replace('${ProcessDataFunctionArn}', 'arn:aws:lambda:us-east-1:123456789012:function:ProcessDataFunction')
+  .replace('${ValidateDataFunctionArn}', 'arn:aws:lambda:us-east-1:123456789012:function:ValidateDataFunction')
+  .replace('${StoreResultFunctionArn}', 'arn:aws:lambda:us-east-1:123456789012:function:StoreResultFunction');
 
 // ステートマシンの作成
 async function createStateMachine() {
@@ -55,11 +52,11 @@ async function createStateMachine() {
       console.log('ステートマシンのリスト取得中にエラーが発生しました（新規作成を続行します）:', listError.message);
     }
 
-    // 新しいステートマシンを作成
+    // 新しいステートマシンを作成（roleArnを省略）
     const params = {
       name: 'DataProcessingStateMachine',
-      definition: localDefinition,
-      roleArn: 'arn:aws:iam::0123456789:role/DummyRole'
+      definition: localDefinition
+      // roleArnを省略
     };
 
     const result = await stepfunctions.createStateMachine(params).promise();
@@ -72,10 +69,7 @@ async function createStateMachine() {
 }
 
 // テスト用のAPIハンドラー
-async function setupTestApi() {
-  const http = require('http');
-  const url = require('url');
-  
+async function setupTestApi(stateMachineArn) {
   // テスト用のHTTPサーバーを作成
   const server = http.createServer(async (req, res) => {
     const parsedUrl = url.parse(req.url, true);
@@ -95,7 +89,7 @@ async function setupTestApi() {
           
           // Step Functionsの実行を開始
           const execParams = {
-            stateMachineArn: requestData.stateMachineArn,
+            stateMachineArn: stateMachineArn,
             input: requestData.input
           };
           
@@ -107,7 +101,7 @@ async function setupTestApi() {
             let executionStatus;
             let output;
             let retries = 0;
-            const maxRetries = 10;
+            const maxRetries = 30; // 最大30秒待機
             
             do {
               await new Promise(resolve => setTimeout(resolve, 1000)); // 1秒待機
@@ -123,23 +117,13 @@ async function setupTestApi() {
               console.log(`実行ステータス: ${executionStatus} (試行: ${retries}/${maxRetries})`);
             } while (executionStatus === 'RUNNING' && retries < maxRetries);
             
-            if (executionStatus === 'SUCCEEDED') {
-              // 成功レスポンスを返す
-              res.writeHead(200, { 'Content-Type': 'application/json' });
-              res.end(JSON.stringify({
-                status: 'SUCCEEDED',
-                executionArn: execResult.executionArn,
-                output: output
-              }));
-            } else {
-              // 失敗または実行中のレスポンスを返す
-              res.writeHead(200, { 'Content-Type': 'application/json' });
-              res.end(JSON.stringify({
-                status: executionStatus,
-                executionArn: execResult.executionArn,
-                error: 'Execution did not complete in time or failed'
-              }));
-            }
+            // 実行結果を返す
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+              status: executionStatus,
+              executionArn: execResult.executionArn,
+              output: output
+            }));
           } catch (execError) {
             console.error('実行エラー:', execError);
             res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -160,6 +144,39 @@ async function setupTestApi() {
   
   // サーバーの起動
   const PORT = 8083;
+  
+  // 既存のプロセスが使用している場合は、別のポートを試す
+  server.on('error', (e) => {
+    if (e.code === 'EADDRINUSE') {
+      console.log(`ポート ${PORT} は既に使用されています。Step Functions Localが既に起動している可能性があります。`);
+      console.log('プロキシモードで動作します...');
+      
+      // プロキシサーバーとして動作
+      const proxyServer = http.createServer((req, res) => {
+        const options = {
+          hostname: 'localhost',
+          port: PORT,
+          path: req.url,
+          method: req.method,
+          headers: req.headers
+        };
+        
+        const proxyReq = http.request(options, (proxyRes) => {
+          res.writeHead(proxyRes.statusCode, proxyRes.headers);
+          proxyRes.pipe(res, { end: true });
+        });
+        
+        req.pipe(proxyReq, { end: true });
+      });
+      
+      proxyServer.listen(8084, () => {
+        console.log(`プロキシサーバーが起動しました: http://localhost:8084`);
+      });
+    } else {
+      console.error('サーバー起動エラー:', e);
+    }
+  });
+  
   server.listen(PORT, () => {
     console.log(`テストAPIサーバーが起動しました: http://localhost:${PORT}`);
   });
@@ -169,11 +186,22 @@ async function setupTestApi() {
 async function main() {
   try {
     console.log('ローカルStep Functions環境をセットアップしています...');
-    const stateMachineArn = await createStateMachine();
-    console.log('テストAPIサーバーをセットアップしています...');
-    await setupTestApi();
-    console.log('セットアップ完了');
-    console.log('ステートマシンARN:', stateMachineArn);
+    
+    // Step Functions Localが起動しているか確認
+    try {
+      await stepfunctions.listStateMachines({}).promise();
+      console.log('Step Functions Localに接続しました');
+      
+      // ステートマシンを作成
+      const stateMachineArn = await createStateMachine();
+      console.log('ステートマシンARN:', stateMachineArn);
+      
+      // テストAPIサーバーをセットアップ
+      await setupTestApi(stateMachineArn);
+    } catch (error) {
+      console.error('Step Functions Localへの接続エラー:', error);
+      process.exit(1);
+    }
   } catch (error) {
     console.error('セットアップエラー:', error);
     process.exit(1);
