@@ -10,9 +10,12 @@ echo "Step Functions Localを起動しています..."
 docker run -d -p 8083:8083 --name stepfunctions-local \
   -e AWS_ACCESS_KEY_ID=dummy \
   -e AWS_SECRET_ACCESS_KEY=dummy \
+  -e AWS_REGION=us-east-1 \
   -e LAMBDA_ENDPOINT=http://host.docker.internal:3001 \
   -e LAMBDA_FORWARD_REQUEST=1 \
   -e STEP_FUNCTIONS_ENDPOINT=http://localhost:8083 \
+  -e SFN_MOCK_CONFIG='{"lambdaEndpoint":"http://host.docker.internal:3001"}' \
+  -e WAIT_TIME_SCALE=0.1 \
   -e SFN_IAM_ROLE_ARN_PATTERN='arn:aws:iam::123456789012:role/.*' \
   --add-host=host.docker.internal:host-gateway \
   amazon/aws-stepfunctions-local
@@ -36,12 +39,7 @@ sleep 5
 
 # Step Functions環境をセットアップ
 echo "Step Functions環境をセットアップしています..."
-DOCKER_HOST_IP=host.docker.internal node tests/setup-local-stepfunctions.js &
-SETUP_PID=$!
-
-# セットアップが完了するまで待機
-echo "セットアップの完了を待機しています..."
-sleep 5
+DOCKER_HOST_IP=host.docker.internal node tests/setup-local-stepfunctions.js
 
 # テストを実行
 echo "テストを実行しています..."
@@ -50,7 +48,6 @@ newman run tests/postman/serverless-test-collection.json -e tests/postman/enviro
 # プロセスをクリーンアップ
 echo "クリーンアップしています..."
 kill $LAMBDA_PID
-kill $SETUP_PID
 docker stop stepfunctions-local
 docker rm stepfunctions-local
 
