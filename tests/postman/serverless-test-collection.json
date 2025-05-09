@@ -1,0 +1,247 @@
+{
+  "info": {
+    "name": "Serverless Workflow Tests",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "ProcessData Function Test",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const response = pm.response.json();",
+              "",
+              "pm.test(\"Status is PROCESSED\", function() {",
+              "    pm.expect(response.status).to.equal(\"PROCESSED\");",
+              "});",
+              "",
+              "pm.test(\"Original data is preserved\", function() {",
+              "    pm.expect(response.originalData).to.equal(pm.variables.get(\"testData\"));",
+              "});",
+              "",
+              "pm.test(\"Metadata is present\", function() {",
+              "    pm.expect(response.metadata).to.be.an(\"object\");",
+              "    pm.expect(response.metadata.version).to.equal(\"1.0\");",
+              "});",
+              "",
+              "pm.test(\"ProcessedAt timestamp is valid\", function() {",
+              "    pm.expect(response.processedAt).to.be.a(\"string\");",
+              "    const date = new Date(response.processedAt);",
+              "    pm.expect(date.toString()).to.not.equal(\"Invalid Date\");",
+              "});",
+              "",
+              "// Store the response for the next test",
+              "pm.environment.set(\"processedData\", JSON.stringify(response));"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"data\": \"{{testData}}\",\n    \"source\": \"test-automation\"\n}"
+        },
+        "url": {
+          "raw": "{{lambdaEndpoint}}/2015-03-31/functions/ProcessDataFunction/invocations",
+          "host": [
+            "{{lambdaEndpoint}}"
+          ],
+          "path": [
+            "2015-03-31",
+            "functions",
+            "ProcessDataFunction",
+            "invocations"
+          ]
+        }
+      }
+    },
+    {
+      "name": "ValidateData Function Test",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const response = pm.response.json();",
+              "",
+              "pm.test(\"Validation status is PASSED\", function() {",
+              "    pm.expect(response.validationResult.validationStatus).to.equal(\"PASSED\");",
+              "});",
+              "",
+              "pm.test(\"Original data is preserved\", function() {",
+              "    pm.expect(response.originalData).to.equal(pm.variables.get(\"testData\"));",
+              "});",
+              "",
+              "pm.test(\"Status from previous step is preserved\", function() {",
+              "    pm.expect(response.status).to.equal(\"PROCESSED\");",
+              "});",
+              "",
+              "pm.test(\"Validation rules are defined\", function() {",
+              "    pm.expect(response.validationResult.validationRules).to.be.an(\"array\");",
+              "    pm.expect(response.validationResult.validationRules.length).to.be.greaterThan(0);",
+              "});",
+              "",
+              "// Store the response for the next test",
+              "pm.environment.set(\"validatedData\", JSON.stringify(response));"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{{processedData}}"
+        },
+        "url": {
+          "raw": "{{lambdaEndpoint}}/2015-03-31/functions/ValidateDataFunction/invocations",
+          "host": [
+            "{{lambdaEndpoint}}"
+          ],
+          "path": [
+            "2015-03-31",
+            "functions",
+            "ValidateDataFunction",
+            "invocations"
+          ]
+        }
+      }
+    },
+    {
+      "name": "StoreResult Function Test",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const response = pm.response.json();",
+              "",
+              "pm.test(\"Storage status is COMPLETED\", function() {",
+              "    pm.expect(response.storage.storageStatus).to.equal(\"COMPLETED\");",
+              "});",
+              "",
+              "pm.test(\"Storage ID is generated\", function() {",
+              "    pm.expect(response.storage.storageId).to.be.a(\"string\");",
+              "    pm.expect(response.storage.storageId).to.include(\"result-\");",
+              "});",
+              "",
+              "pm.test(\"Original validation result is preserved\", function() {",
+              "    pm.expect(response.validationResult.validationStatus).to.equal(\"PASSED\");",
+              "});",
+              "",
+              "pm.test(\"Complete workflow data is preserved\", function() {",
+              "    pm.expect(response.originalData).to.equal(pm.variables.get(\"testData\"));",
+              "    pm.expect(response.status).to.equal(\"PROCESSED\");",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{{validatedData}}"
+        },
+        "url": {
+          "raw": "{{lambdaEndpoint}}/2015-03-31/functions/StoreResultFunction/invocations",
+          "host": [
+            "{{lambdaEndpoint}}"
+          ],
+          "path": [
+            "2015-03-31",
+            "functions",
+            "StoreResultFunction",
+            "invocations"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Full State Machine Execution Test",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const response = pm.response.json();",
+              "",
+              "pm.test(\"State Machine execution completed successfully\", function() {",
+              "    pm.expect(response.status).to.equal(\"SUCCEEDED\");",
+              "});",
+              "",
+              "const output = JSON.parse(response.output);",
+              "",
+              "pm.test(\"Final output contains storage information\", function() {",
+              "    pm.expect(output.storage).to.be.an(\"object\");",
+              "    pm.expect(output.storage.storageStatus).to.equal(\"COMPLETED\");",
+              "});",
+              "",
+              "pm.test(\"Final output contains validation information\", function() {",
+              "    pm.expect(output.validationResult).to.be.an(\"object\");",
+              "    pm.expect(output.validationResult.validationStatus).to.equal(\"PASSED\");",
+              "});",
+              "",
+              "pm.test(\"Original input data is preserved throughout the workflow\", function() {",
+              "    pm.expect(output.originalData).to.equal(pm.variables.get(\"testData\"));",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"stateMachineArn\": \"{{stateMachineArn}}\",\n    \"input\": \"{\\\"data\\\": \\\"{{testData}}\\\", \\\"source\\\": \\\"test-automation\\\"}\"\n}"
+        },
+        "url": {
+          "raw": "{{stepFunctionsEndpoint}}/execution",
+          "host": [
+            "{{stepFunctionsEndpoint}}"
+          ],
+          "path": [
+            "execution"
+          ]
+        }
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "testData",
+      "value": "sample-test-data-123"
+    }
+  ]
+}

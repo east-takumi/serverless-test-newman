@@ -1,0 +1,36 @@
+{
+  "id": "serverless-test-env",
+  "name": "Serverless Test Environment",
+  "values": [
+    {
+      "key": "lambdaEndpoint",
+      "value": "http://localhost:3001",
+      "enabled": true
+    },
+    {
+      "key": "stepFunctionsEndpoint",
+      "value": "http://localhost:8083",
+      "enabled": true
+    },
+    {
+      "key": "stateMachineArn",
+      "value": "arn:aws:states:local:0123456789:stateMachine:DataProcessingStateMachine",
+      "enabled": true
+    },
+    {
+      "key": "testData",
+      "value": "sample-test-data-123",
+      "enabled": true
+    },
+    {
+      "key": "processedData",
+      "value": "",
+      "enabled": true
+    },
+    {
+      "key": "validatedData",
+      "value": "",
+      "enabled": true
+    }
+  ]
+}

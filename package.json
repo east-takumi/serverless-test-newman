@@ -1,0 +1,28 @@
+{
+  "name": "serverless-test-newman",
+  "version": "1.0.0",
+  "description": "サーバレステスト自動化プロジェクト",
+  "main": "index.js",
+  "scripts": {
+    "build": "sam build",
+    "start-local": "sam local start-lambda & sam local start-api & node tests/setup-local-stepfunctions.js",
+    "test": "npm run build && npm run start-local && newman run tests/postman/serverless-test-collection.json -e tests/postman/environment.json --reporters cli,junit --reporter-junit-export results/junit-report.xml",
+    "test:ci": "newman run tests/postman/serverless-test-collection.json -e tests/postman/environment.json --reporters cli,junit --reporter-junit-export results/junit-report.xml"
+  },
+  "keywords": [
+    "serverless",
+    "testing",
+    "newman",
+    "postman",
+    "aws-sam"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "aws-sdk": "^2.1135.0"
+  },
+  "devDependencies": {
+    "newman": "^5.3.2",
+    "newman-reporter-htmlextra": "^1.22.11"
+  }
+}

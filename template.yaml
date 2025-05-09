@@ -1,0 +1,62 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: サーバレステスト自動化プロジェクト
+
+Resources:
+  # Lambda関数の定義
+  ProcessDataFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/processData/
+      Handler: app.handler
+      Runtime: nodejs18.x
+      Timeout: 10
+      MemorySize: 128
+
+  ValidateDataFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/validateData/
+      Handler: app.handler
+      Runtime: nodejs18.x
+      Timeout: 10
+      MemorySize: 128
+
+  StoreResultFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/storeResult/
+      Handler: app.handler
+      Runtime: nodejs18.x
+      Timeout: 10
+      MemorySize: 128
+
+  # Step Functionsの定義
+  DataProcessingStateMachine:
+    Type: AWS::Serverless::StateMachine
+    Properties:
+      DefinitionUri: statemachine/data_processing.asl.json
+      Role: 
+        Fn::GetAtt: 
+          - DataProcessingStateMachineRole
+          - Arn
+
+  # Step Functions用のIAMロール
+  DataProcessingStateMachineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: states.amazonaws.com
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AWSLambdaRole'
+
+Outputs:
+  DataProcessingStateMachine:
+    Description: "Data Processing State Machine ARN"
+    Value: 
+      Ref: DataProcessingStateMachine

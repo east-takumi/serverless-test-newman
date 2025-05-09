@@ -1,0 +1,73 @@
+name: Serverless Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm install
+    
+    - name: Set up AWS SAM CLI
+      uses: aws-actions/setup-sam@v2
+      
+    - name: Build SAM application
+      run: sam build
+    
+    - name: Start local Lambda environment
+      run: |
+        sam local start-lambda &
+        echo "Waiting for Lambda to start..."
+        sleep 10
+    
+    - name: Start local API Gateway
+      run: |
+        sam local start-api &
+        echo "Waiting for API Gateway to start..."
+        sleep 10
+    
+    - name: Set up Step Functions Local
+      run: |
+        docker run -d -p 8083:8083 --name stepfunctions-local amazon/aws-stepfunctions-local
+        echo "Waiting for Step Functions to start..."
+        sleep 10
+        node tests/setup-local-stepfunctions.js
+    
+    - name: Run Newman tests
+      run: |
+        npx newman run tests/postman/serverless-test-collection.json \
+          -e tests/postman/environment.json \
+          --reporters cli,junit,htmlextra \
+          --reporter-junit-export results/junit-report.xml \
+          --reporter-htmlextra-export results/html-report.html
+    
+    - name: Upload test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: test-results
+        path: results/
+        
+    - name: Check test results
+      run: |
+        if [ -f results/junit-report.xml ]; then
+          echo "Test results available"
+          exit $(grep -c "failures=\"[1-9]" results/junit-report.xml)
+        else
+          echo "No test results found"
+          exit 1
+        fi

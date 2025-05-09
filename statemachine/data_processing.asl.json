@@ -1,0 +1,21 @@
+{
+  "Comment": "データ処理ワークフロー",
+  "StartAt": "ProcessData",
+  "States": {
+    "ProcessData": {
+      "Type": "Task",
+      "Resource": "${ProcessDataFunctionArn}",
+      "Next": "ValidateData"
+    },
+    "ValidateData": {
+      "Type": "Task",
+      "Resource": "${ValidateDataFunctionArn}",
+      "Next": "StoreResult"
+    },
+    "StoreResult": {
+      "Type": "Task",
+      "Resource": "${StoreResultFunctionArn}",
+      "End": true
+    }
+  }
+}
