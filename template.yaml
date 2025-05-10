@@ -1,32 +1,32 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: サーバレステスト自動化プロジェクト
+Description: サーバレステスト自動化プロジェクト - 時刻変換と日付計算
 
 Resources:
   # Lambda関数の定義
-  ProcessDataFunction:
+  ConvertToJSTFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: src/processData/
-      Handler: app.handler
+      CodeUri: src/convertToJST/
+      Handler: index.handler
       Runtime: nodejs18.x
       Timeout: 10
       MemorySize: 128
 
-  ValidateDataFunction:
+  CalculateTimeDifferenceFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: src/validateData/
-      Handler: app.handler
+      CodeUri: src/calculateTimeDifference/
+      Handler: index.handler
       Runtime: nodejs18.x
       Timeout: 10
       MemorySize: 128
 
-  StoreResultFunction:
+  FormatResultsFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: src/storeResult/
-      Handler: app.handler
+      CodeUri: src/formatResults/
+      Handler: index.handler
       Runtime: nodejs18.x
       Timeout: 10
       MemorySize: 128
@@ -36,6 +36,10 @@ Resources:
     Type: AWS::Serverless::StateMachine
     Properties:
       DefinitionUri: statemachine/data_processing.asl.json
+      DefinitionSubstitutions:
+        ConvertToJSTFunctionArn: !GetAtt ConvertToJSTFunction.Arn
+        CalculateTimeDifferenceFunctionArn: !GetAtt CalculateTimeDifferenceFunction.Arn
+        FormatResultsFunctionArn: !GetAtt FormatResultsFunction.Arn
       Role: 
         Fn::GetAtt: 
           - DataProcessingStateMachineRole
@@ -57,7 +61,7 @@ Resources:
 
 Outputs:
   DataProcessingStateMachine:
-    Description: "Data Processing State Machine ARN"
+    Description: "時刻変換と日付計算 State Machine ARN"
     Value: 
       Ref: DataProcessingStateMachine
 

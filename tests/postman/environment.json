@@ -1,6 +1,6 @@
 {
-  "id": "serverless-test-env",
-  "name": "Serverless Test Environment",
+  "id": "time-conversion-env",
+  "name": "時刻変換テスト環境",
   "values": [
     {
       "key": "lambdaEndpoint",
@@ -13,23 +13,23 @@
       "enabled": true
     },
     {
+      "key": "convertToJSTFunction",
+      "value": "ConvertToJSTFunction",
+      "enabled": true
+    },
+    {
+      "key": "calculateTimeDifferenceFunction",
+      "value": "CalculateTimeDifferenceFunction",
+      "enabled": true
+    },
+    {
+      "key": "formatResultsFunction",
+      "value": "FormatResultsFunction",
+      "enabled": true
+    },
+    {
       "key": "stateMachineArn",
       "value": "arn:aws:states:local:0123456789:stateMachine:DataProcessingStateMachine",
-      "enabled": true
-    },
-    {
-      "key": "testData",
-      "value": "sample-test-data-123",
-      "enabled": true
-    },
-    {
-      "key": "processedData",
-      "value": "",
-      "enabled": true
-    },
-    {
-      "key": "validatedData",
-      "value": "",
       "enabled": true
     }
   ]

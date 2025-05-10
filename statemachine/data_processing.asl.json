@@ -1,20 +1,20 @@
 {
-  "Comment": "データ処理ワークフロー",
-  "StartAt": "ProcessData",
+  "Comment": "時刻変換と日付計算ワークフロー",
+  "StartAt": "ConvertToJST",
   "States": {
-    "ProcessData": {
+    "ConvertToJST": {
       "Type": "Task",
-      "Resource": "${ProcessDataFunctionArn}",
-      "Next": "ValidateData"
+      "Resource": "${ConvertToJSTFunctionArn}",
+      "Next": "CalculateTimeDifference"
     },
-    "ValidateData": {
+    "CalculateTimeDifference": {
       "Type": "Task",
-      "Resource": "${ValidateDataFunctionArn}",
-      "Next": "StoreResult"
+      "Resource": "${CalculateTimeDifferenceFunctionArn}",
+      "Next": "FormatResults"
     },
-    "StoreResult": {
+    "FormatResults": {
       "Type": "Task",
-      "Resource": "${StoreResultFunctionArn}",
+      "Resource": "${FormatResultsFunctionArn}",
       "End": true
     }
   }

@@ -1,101 +1,45 @@
 /**
- * ローカルでのStep Functions実行環境をセットアップするスクリプト
+ * ローカルテスト環境のセットアップスクリプト
  * 
- * このスクリプトは、AWS Step Functions Local を使用して
- * ローカル環境でのテスト実行をサポートします。
+ * このスクリプトは、AWS SAM LocalとStep Functions Localを使用して
+ * ローカル環境でテストを実行するための準備を行います。
  */
 
-const AWS = require('aws-sdk');
+const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
-// ローカルStep Functions設定
-const stepfunctions = new AWS.StepFunctions({
-  endpoint: 'http://localhost:8083',
-  region: 'local'
-});
+// 結果ディレクトリの作成
+const resultsDir = path.join(__dirname, '..', 'results');
+if (!fs.existsSync(resultsDir)) {
+  fs.mkdirSync(resultsDir, { recursive: true });
+}
 
-// ステートマシン定義の読み込み
-const stateMachineDefinition = fs.readFileSync(
-  path.join(__dirname, '../statemachine/data_processing.asl.json'),
-  'utf8'
-);
+console.log('ローカルテスト環境をセットアップしています...');
 
-// Lambda ARNをローカル環境用に置換
-const localDefinition = stateMachineDefinition
-  .replace('${ProcessDataFunctionArn}', 'arn:aws:lambda:local:0123456789:function:ProcessDataFunction')
-  .replace('${ValidateDataFunctionArn}', 'arn:aws:lambda:local:0123456789:function:ValidateDataFunction')
-  .replace('${StoreResultFunctionArn}', 'arn:aws:lambda:local:0123456789:function:StoreResultFunction');
-
-// ステートマシンの作成
-async function createStateMachine() {
+try {
+  // SAMビルドの実行
+  console.log('SAMプロジェクトをビルドしています...');
+  execSync('sam build', { stdio: 'inherit' });
+  
+  // Step Functions Localの起動確認
+  console.log('Step Functions Localの状態を確認しています...');
   try {
-    const params = {
-      name: 'DataProcessingStateMachine',
-      definition: localDefinition,
-      roleArn: 'arn:aws:iam::0123456789:role/DummyRole'
-    };
-
-    const result = await stepfunctions.createStateMachine(params).promise();
-    console.log('ステートマシンを作成しました:', result.stateMachineArn);
-    
-    // テスト用にサンプル実行を作成
-    const execParams = {
-      stateMachineArn: result.stateMachineArn,
-      input: JSON.stringify({
-        data: 'sample-test-data-123',
-        source: 'test-automation'
-      })
-    };
-    
-    const execResult = await stepfunctions.startExecution(execParams).promise();
-    console.log('ステートマシン実行を開始しました:', execResult.executionArn);
-    
-    // 実行結果を確認するためのエンドポイントをモック
-    console.log('モックエンドポイントをセットアップしています...');
-    
-    // Express Step Functionsのモック応答を作成
-    const mockResponse = {
-      status: 'SUCCEEDED',
-      output: JSON.stringify({
-        originalData: 'sample-test-data-123',
-        processedAt: new Date().toISOString(),
-        status: 'PROCESSED',
-        metadata: {
-          source: 'test-automation',
-          version: '1.0'
-        },
-        validationResult: {
-          isValid: true,
-          validatedAt: new Date().toISOString(),
-          validationRules: ['format_check', 'content_validation'],
-          validationStatus: 'PASSED'
-        },
-        storage: {
-          storedAt: new Date().toISOString(),
-          storageId: `result-${Date.now()}`,
-          storageStatus: 'COMPLETED'
-        }
-      })
-    };
-    
-    // モック応答をファイルに保存（実際のAPIサーバーを作成する代わり）
-    fs.writeFileSync(
-      path.join(__dirname, '../tests/mock-execution-response.json'),
-      JSON.stringify(mockResponse, null, 2)
-    );
-    
-    console.log('モック応答を作成しました');
+    execSync('docker ps | grep amazon/aws-stepfunctions-local', { stdio: 'pipe' });
+    console.log('Step Functions Localは既に実行中です');
   } catch (error) {
-    console.error('ステートマシン作成エラー:', error);
+    console.log('Step Functions Localを起動しています...');
+    execSync('docker run -d -p 8083:8083 --name stepfunctions-local amazon/aws-stepfunctions-local', { stdio: 'inherit' });
   }
+  
+  // Lambda関数のローカル起動
+  console.log('Lambda関数をローカルで起動しています...');
+  const samLocalProcess = execSync('sam local start-lambda --port 3001 &', { stdio: 'inherit' });
+  
+  console.log('セットアップが完了しました。テストを実行できます。');
+  console.log('テストを実行するには: npm run test');
+  
+} catch (error) {
+  console.error('セットアップ中にエラーが発生しました:', error);
+  process.exit(1);
 }
-
-// メイン処理
-async function main() {
-  console.log('ローカルStep Functions環境をセットアップしています...');
-  await createStateMachine();
-  console.log('セットアップ完了');
-}
-
-main();
