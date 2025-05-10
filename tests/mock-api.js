@@ -1,74 +1,105 @@
 /**
- * Step Functions実行APIのモックサーバー
+ * モックAPIサーバー
+ * 
+ * このスクリプトは、Lambda関数とStep Functionsのモックエンドポイントを提供します。
+ * Docker環境がない場合や、ローカルでのテスト実行を簡素化するために使用します。
  */
+
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const url = require('url');
 
-// モックレスポンスの読み込み
-let mockResponse;
-try {
-  mockResponse = JSON.parse(fs.readFileSync(
-    path.join(__dirname, 'mock-execution-response.json'),
-    'utf8'
-  ));
-} catch (error) {
-  // モックレスポンスがない場合はデフォルト値を使用
-  mockResponse = {
-    status: 'SUCCEEDED',
-    output: JSON.stringify({
-      originalData: 'sample-test-data-123',
-      processedAt: new Date().toISOString(),
-      status: 'PROCESSED',
-      metadata: {
-        source: 'test-automation',
-        version: '1.0'
-      },
-      validationResult: {
-        isValid: true,
-        validatedAt: new Date().toISOString(),
-        validationRules: ['format_check', 'content_validation'],
-        validationStatus: 'PASSED'
-      },
-      storage: {
-        storedAt: new Date().toISOString(),
-        storageId: `result-${Date.now()}`,
-        storageStatus: 'COMPLETED'
-      }
-    })
-  };
-}
+// モックデータのディレクトリ
+const mockDataDir = path.join(__dirname, 'mock-data');
 
-// サーバーの作成
-const server = http.createServer((req, res) => {
-  console.log(`リクエスト: ${req.method} ${req.url}`);
+// Lambda関数のモックレスポンス
+const lambdaResponses = {
+  'ConvertToJSTFunction': path.join(mockDataDir, 'convertToJST.json'),
+  'CalculateTimeDifferenceFunction': path.join(mockDataDir, 'calculateTimeDifference.json'),
+  'FormatResultsFunction': path.join(mockDataDir, 'formatResults.json')
+};
+
+// Step Functionsのモックレスポンス
+const stepFunctionsResponse = path.join(mockDataDir, 'stepFunctions.json');
+
+// Lambda関数のモックサーバー（ポート3001）
+const lambdaServer = http.createServer((req, res) => {
+  console.log(`Lambda Mock: ${req.method} ${req.url}`);
   
-  // POSTリクエストのボディを読み取る
+  // リクエストボディを読み込む
   let body = '';
   req.on('data', chunk => {
     body += chunk.toString();
   });
   
   req.on('end', () => {
-    // Step Functions実行APIのモック
-    if (req.method === 'POST' && req.url === '/execution') {
-      console.log('Step Functions実行リクエスト:', body);
-      
-      // レスポンスヘッダー
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      
-      // モックレスポンスを返す
-      res.end(JSON.stringify(mockResponse));
+    // URLからLambda関数名を抽出
+    const parsedUrl = url.parse(req.url);
+    const pathParts = parsedUrl.pathname.split('/');
+    const functionName = pathParts[pathParts.length - 2];
+    
+    console.log(`Function name: ${functionName}`);
+    console.log(`Request body: ${body}`);
+    
+    // 対応するモックレスポンスを返す
+    if (lambdaResponses[functionName]) {
+      try {
+        const responseData = fs.readFileSync(lambdaResponses[functionName], 'utf8');
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(responseData);
+        console.log(`Responded with mock data for ${functionName}`);
+      } catch (error) {
+        console.error(`Error reading mock data for ${functionName}:`, error);
+        res.writeHead(500);
+        res.end(JSON.stringify({ error: 'Internal Server Error' }));
+      }
     } else {
-      // その他のエンドポイントには404を返す
-      res.writeHead(404, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Not Found' }));
+      console.error(`No mock data found for function: ${functionName}`);
+      res.writeHead(404);
+      res.end(JSON.stringify({ error: 'Function Not Found' }));
     }
   });
 });
 
-// サーバーの起動
-const PORT = 8083;
-server.listen(PORT, () => {
-  console.log(`モックAPIサーバーが起動しました: http://localhost:${PORT}`);
+// Step Functionsのモックサーバー（ポート8083）
+const stepFunctionsServer = http.createServer((req, res) => {
+  console.log(`Step Functions Mock: ${req.method} ${req.url}`);
+  
+  // リクエストボディを読み込む
+  let body = '';
+  req.on('data', chunk => {
+    body += chunk.toString();
+  });
+  
+  req.on('end', () => {
+    // Step Functions実行のモックレスポンスを返す
+    try {
+      const responseData = fs.readFileSync(stepFunctionsResponse, 'utf8');
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(responseData);
+      console.log('Responded with Step Functions mock data');
+    } catch (error) {
+      console.error('Error reading Step Functions mock data:', error);
+      res.writeHead(500);
+      res.end(JSON.stringify({ error: 'Internal Server Error' }));
+    }
+  });
+});
+
+// サーバーを起動
+lambdaServer.listen(3001, () => {
+  console.log('Lambda Mock Server running on port 3001');
+});
+
+stepFunctionsServer.listen(8083, () => {
+  console.log('Step Functions Mock Server running on port 8083');
+});
+
+// プロセス終了時にサーバーを停止
+process.on('SIGINT', () => {
+  console.log('Shutting down mock servers...');
+  lambdaServer.close();
+  stepFunctionsServer.close();
+  process.exit(0);
 });

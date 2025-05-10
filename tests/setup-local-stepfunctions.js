@@ -15,27 +15,67 @@ if (!fs.existsSync(resultsDir)) {
   fs.mkdirSync(resultsDir, { recursive: true });
 }
 
-console.log('ローカルテスト環境をセットアップしています...');
+console.log('ローカルテスト環境をセットアップしています（Docker なし）...');
 
 try {
-  // SAMビルドの実行
-  console.log('SAMプロジェクトをビルドしています...');
-  execSync('sam build', { stdio: 'inherit' });
+  console.log('SAM ビルドと Docker 依存部分をスキップします');
+  console.log('モックテスト環境を準備します...');
   
-  // Step Functions Localの起動確認
-  console.log('Step Functions Localの状態を確認しています...');
-  try {
-    execSync('docker ps | grep amazon/aws-stepfunctions-local', { stdio: 'pipe' });
-    console.log('Step Functions Localは既に実行中です');
-  } catch (error) {
-    console.log('Step Functions Localを起動しています...');
-    execSync('docker run -d -p 8083:8083 --name stepfunctions-local amazon/aws-stepfunctions-local', { stdio: 'inherit' });
+  // ここでモックテスト環境のセットアップコードを追加
+  // 例: テスト用のモックデータを作成
+  const mockDataDir = path.join(__dirname, 'mock-data');
+  if (!fs.existsSync(mockDataDir)) {
+    fs.mkdirSync(mockDataDir, { recursive: true });
   }
   
-  // Lambda関数のローカル起動
-  console.log('Lambda関数をローカルで起動しています...');
-  const samLocalProcess = execSync('sam local start-lambda --port 3001 &', { stdio: 'inherit' });
+  // Lambda関数の出力をモックするJSONファイルを作成
+  const convertToJSTOutput = {
+    utcTime: "2025-05-10T00:00:00Z",
+    jstTime: "2025-05-10T09:00:00Z",
+    message: "UTC時刻をJSTに変換しました"
+  };
   
+  const calculateTimeDifferenceOutput = {
+    utcTime: "2025-05-10T00:00:00Z",
+    jstTime: "2025-05-10T09:00:00Z",
+    targetDate: "2025-09-06T11:00:00Z",
+    timeDifference: {
+      totalMilliseconds: 10368000000,
+      days: 120,
+      hours: 2,
+      minutes: 0,
+      seconds: 0
+    },
+    message: "目標日時までの差分を計算しました"
+  };
+  
+  const formatResultsOutput = {
+    currentDate: {
+      iso: "2025-05-10T09:00:00Z",
+      formatted: "2025年05月10日"
+    },
+    daysUntilTarget: 120,
+    targetDate: "2025-09-06T11:00:00Z",
+    message: "結果を整形しました"
+  };
+  
+  const stepFunctionsOutput = {
+    executionArn: "arn:aws:states:local:0123456789:execution:DataProcessingStateMachine:test-execution",
+    stateMachineArn: "arn:aws:states:local:0123456789:stateMachine:DataProcessingStateMachine",
+    name: "test-execution",
+    status: "SUCCEEDED",
+    startDate: "2025-05-10T00:00:00.000Z",
+    stopDate: "2025-05-10T00:00:10.000Z",
+    input: "{\"time\": \"2025-05-10T00:00:00Z\"}",
+    output: JSON.stringify(formatResultsOutput)
+  };
+  
+  fs.writeFileSync(path.join(mockDataDir, 'convertToJST.json'), JSON.stringify(convertToJSTOutput, null, 2));
+  fs.writeFileSync(path.join(mockDataDir, 'calculateTimeDifference.json'), JSON.stringify(calculateTimeDifferenceOutput, null, 2));
+  fs.writeFileSync(path.join(mockDataDir, 'formatResults.json'), JSON.stringify(formatResultsOutput, null, 2));
+  fs.writeFileSync(path.join(mockDataDir, 'stepFunctions.json'), JSON.stringify(stepFunctionsOutput, null, 2));
+  
+  console.log('モックデータを作成しました:', mockDataDir);
   console.log('セットアップが完了しました。テストを実行できます。');
   console.log('テストを実行するには: npm run test');
   
